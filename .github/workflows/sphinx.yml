@@ -1,0 +1,60 @@
+name: Sphinx
+
+on:
+  # mainブランチにプッシュされたら実行
+  push:
+    branches:
+      - main
+  # 一応手動実行もできるようにしておく
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  actions: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+  
+jobs:
+  publish-docs:
+    # ビルド用の環境の設定
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    # Gitリポジトリをクローン
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # ビルド用のPython環境の準備
+    - name: Setup Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+        architecture: x64
+
+    # sphinx（とその他必要なもの）をインストール
+    - run: pip install -U sphinx sphinx_rtd_theme numpydoc
+    # モジュールからrstファイルなどをdocsに作成
+    # ベースのconf.pyなどは事前に作成しておく。
+    - run: sphinx-apidoc -f -o ./docs ./src 
+    # rstファイルなどからhtmlなどを_buildに作成
+    - run: sphinx-build -b html ./docs ./docs/_build
+
+    # 作成したhtmlなどをartifactsとしてアップロード
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: './docs/_build'
+
+    # Pagesにデプロイ
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
